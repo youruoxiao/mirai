@@ -29,6 +29,9 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
+      - name: Init gradle project
+        run: ./gradlew clean --info
+
       - name: Check keys
         run: >
           ./gradlew :mirai-core-utils:ensureBintrayAvailable
@@ -37,9 +40,6 @@ jobs:
           :mirai-console:ensureBintrayAvailable
           -Dbintray_user=${{ secrets.BINTRAY_USER }} -Pbintray_user=${{ secrets.BINTRAY_USER }}
           -Dbintray_key=${{ secrets.BINTRAY_KEY }} -Pbintray_key=${{ secrets.BINTRAY_KEY }}
-
-      - name: Init gradle project
-        run: ./gradlew clean --info
 
       - name: fillBuildConstants
         run: >
