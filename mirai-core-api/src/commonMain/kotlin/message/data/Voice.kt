@@ -51,8 +51,10 @@ public class Voice @MiraiInternalApi constructor(
     @MiraiExperimentalApi public override val md5: ByteArray,
     @MiraiExperimentalApi public override val fileSize: Long,
 
-    @MiraiInternalApi public val codec: Int = 0,
-    private val _url: String
+    @MiraiInternalApi public val codec: Int,
+    @MiraiInternalApi private val _url: String,
+    @MiraiInternalApi public val groupFileKey: ByteArray,
+    @MiraiInternalApi public val fileId: Long,
 ) : PttMessage() {
 
     public companion object Key : AbstractPolymorphicMessageKey<PttMessage, Voice>(PttMessage, { it.safeCast() }) {

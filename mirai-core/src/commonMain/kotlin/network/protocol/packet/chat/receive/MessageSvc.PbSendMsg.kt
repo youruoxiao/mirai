@@ -15,6 +15,7 @@ import net.mamoe.mirai.contact.Friend
 import net.mamoe.mirai.contact.Group
 import net.mamoe.mirai.contact.Member
 import net.mamoe.mirai.contact.Stranger
+import net.mamoe.mirai.internal.EMPTY_BYTE_ARRAY
 import net.mamoe.mirai.internal.QQAndroidBot
 import net.mamoe.mirai.internal.contact.groupCode
 import net.mamoe.mirai.internal.contact.uin
@@ -33,6 +34,7 @@ import net.mamoe.mirai.internal.utils.io.serialization.readProtoBuf
 import net.mamoe.mirai.internal.utils.io.serialization.writeProtoBuf
 import net.mamoe.mirai.message.data.*
 import net.mamoe.mirai.utils.currentTimeSeconds
+import net.mamoe.mirai.utils.hexToBytes
 import java.util.concurrent.atomic.AtomicReference
 import kotlin.contracts.InvocationKind
 import kotlin.contracts.contract
@@ -340,20 +342,36 @@ internal object MessageSvcPbSendMsg : OutgoingPacketFactory<MessageSvcPbSendMsg.
                     richText = ImMsgBody.RichText(
                         elems = subChain.toRichTextElems(messageTarget = targetGroup, withGeneralFlags = true),
                         ptt = subChain[PttMessage]?.run {
+                            val ptt = this
+                            /**
+                             * official:
+                             *
+                            ptt=Ptt#1407011519 {
+                            boolValid=true
+                            bytesPttUrls=[]
+                            fileId=0x4BF84D1A(1274563866)
+                            fileMd5=F0 B5 8A 08 0B 53 4F 0B DC FE E6 60 79 76 9C 14
+                            fileName=46 30 42 35 38 41 30 38 30 42 35 33 34 46 30 42 44 43 46 45 45 36 36 30 37 39 37 36 39 43 31 34 2E 61 6D 72
+                            fileSize=0x00000E9A(3738)
+                            fileType=0x00000004(4)
+                            format=0x00000001(1)
+                            groupFileKey=39 30 6A 33 33 52 67 6D 42 70 37 56 55 53 64 59 52 47 38 32 62 63 52 6A 62 4D 4A 5F 43 33 6D 75 53 4E 39 35
+                            pbReserve=08 00 28 00 38 00
+                            srcUin=0
+                            time=0x00000003(3)
+                            }
+                             */
                             ImMsgBody.Ptt(
                                 fileName = fileName.toByteArray(),
                                 fileMd5 = md5,
                                 boolValid = true,
                                 fileSize = fileSize.toInt(),
                                 fileType = 4,
-                                pbReserve = byteArrayOf(0),
-                                format = let {
-                                    if (it is Voice) {
-                                        it.codec
-                                    } else {
-                                        0
-                                    }
-                                }
+                                pbReserve = "08 00 28 00 38 00".hexToBytes(),
+                                format = if (ptt is Voice) ptt.codec else 0,
+                                time = Int.MAX_VALUE,
+                                groupFileKey = if (ptt is Voice) ptt.groupFileKey else EMPTY_BYTE_ARRAY,
+                                fileId = if (ptt is Voice) ptt.fileId.toInt() else 0,
                             )
                         }
 

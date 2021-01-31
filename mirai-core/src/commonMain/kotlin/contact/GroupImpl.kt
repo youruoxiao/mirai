@@ -31,7 +31,9 @@ import net.mamoe.mirai.internal.network.protocol.packet.chat.image.ImgStore
 import net.mamoe.mirai.internal.network.protocol.packet.chat.voice.PttStore
 import net.mamoe.mirai.internal.network.protocol.packet.chat.voice.voiceCodec
 import net.mamoe.mirai.internal.network.protocol.packet.list.ProfileService
+import net.mamoe.mirai.internal.network.protocol.packet.login.wtlogin.orEmpty
 import net.mamoe.mirai.internal.utils.GroupPkgMsgParsingCache
+import net.mamoe.mirai.internal.utils.io.serialization.loadAs
 import net.mamoe.mirai.internal.utils.io.serialization.toByteArray
 import net.mamoe.mirai.message.MessageReceipt
 import net.mamoe.mirai.message.data.*
@@ -177,8 +179,8 @@ internal class GroupImpl(
 
     override suspend fun uploadVoice(resource: ExternalResource): Voice {
         return bot.network.run {
-            kotlin.runCatching {
-                val (_) = Highway.uploadResourceBdh(
+            val resp = kotlin.runCatching {
+                val (data) = Highway.uploadResourceBdh(
                     bot = bot,
                     resource = resource,
                     kind = GROUP_VOICE,
@@ -186,8 +188,10 @@ internal class GroupImpl(
                     extendInfo = PttStore.GroupPttUp.createTryUpPttPack(bot.id, id, resource)
                         .toByteArray(Cmd0x388.ReqBody.serializer()),
                 )
+                data?.loadAs(Cmd0x388.RspBody.serializer())
             }.recoverCatchingSuppressed {
-                when (val resp = PttStore.GroupPttUp(bot.client, bot.id, id, resource).sendAndExpect()) {
+                val resp = PttStore.GroupPttUp(bot.client, bot.id, id, resource).sendAndExpect()
+                when (resp) {
                     is PttStore.GroupPttUp.Response.RequireUpload -> {
                         tryServers(
                             bot,
@@ -200,18 +204,23 @@ internal class GroupImpl(
                         }
                     }
                 }
+                resp.original
             }.getOrThrow()
 
             // val body = resp?.loadAs(Cmd0x388.RspBody.serializer())
             //     ?.msgTryupPttRsp
             //     ?.singleOrNull()?.fileKey ?: error("Group voice highway transfer succeed but failed to find fileKey")
 
+            val tryUp = resp?.msgTryupPttRsp?.singleOrNull()
+
             Voice(
                 "${resource.md5.toUHexString("")}.amr",
                 resource.md5,
                 resource.size,
                 resource.voiceCodec,
-                ""
+                "",
+                tryUp?.fileKey.orEmpty(),
+                tryUp?.fileid ?: 0,
             )
         }
 

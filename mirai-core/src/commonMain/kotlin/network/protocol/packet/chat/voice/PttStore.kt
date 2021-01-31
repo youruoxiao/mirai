@@ -45,7 +45,8 @@ internal class PttStore {
                 val uKey: ByteArray,
                 val uploadIpList: List<Int>,
                 val uploadPortList: List<Int>,
-                val fileKey: ByteArray
+                val fileKey: ByteArray,
+                val original: Cmd0x388.RspBody
             ) : GroupPttUp.Response() {
                 override fun toString(): String {
                     return "RequireUpload(" +
@@ -120,7 +121,8 @@ internal class PttStore {
                 uKey = resp.upUkey,
                 uploadIpList = resp.uint32UpIp,
                 uploadPortList = resp.uint32UpPort,
-                fileKey = resp.fileKey
+                fileKey = resp.fileKey,
+                original = resp0
             )
 
         }

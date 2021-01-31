@@ -328,7 +328,7 @@ internal fun List<MsgComm.Msg>.toMessageChain(
 //            4 -> Voice(String(fileName), fileMd5, fileSize.toLong(),String(downPara))
 //            else -> null
 //        }
-                add(Voice(String(fileName), fileMd5, fileSize.toLong(), format, String(downPara)))
+                add(Voice(String(fileName), fileMd5, fileSize.toLong(), format, String(downPara), groupFileKey, fileId.toLongUnsigned()))
             }
         }
     }
