@@ -106,9 +106,7 @@ tasks.check {
 }
 
 tasks {
-    val compileKotlin by getting {}
-
-    val fillBuildConstants by registering {
+    val generateBuildConstants by registering {
         group = "mirai"
         doLast {
             projectDir.resolve("src/main/kotlin/VersionConstants.kt").apply { createNewFile() }
@@ -120,5 +118,7 @@ tasks {
         }
     }
 
-    compileKotlin.dependsOn(fillBuildConstants)
+    afterEvaluate {
+        getByName("compileKotlin").dependsOn(generateBuildConstants)
+    }
 }
