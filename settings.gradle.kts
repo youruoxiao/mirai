@@ -32,6 +32,8 @@ include(":mirai-core-all")
 include(":mirai-bom")
 include(":mirai-dokka")
 
+include(":test-common")
+
 include(":binary-compatibility-validator")
 include(":binary-compatibility-validator-android")
 project(":binary-compatibility-validator-android").projectDir = file("binary-compatibility-validator/android")
