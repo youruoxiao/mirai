@@ -84,6 +84,10 @@ public open class ExceptionCollector {
         throw getLast() ?: error("Internal error: expected at least one exception collected.")
     }
 
+    public fun throwLastIfExists() {
+        getLast()?.let { throw it }
+    }
+
     @DslMarker
     private annotation class TerminalOperation
 
@@ -124,6 +128,19 @@ public inline fun <R> ExceptionCollector.withExceptionCollector(action: Exceptio
             return action()
         } catch (e: Throwable) {
             collectThrow(e)
+        } finally {
+            throwLastIfExists()
         }
+    }
+}
+
+/**
+ *  Run with a coverage of `throw`. Thrown exceptions will be caught and [collected][ExceptionCollector.collect]
+ */
+public inline fun ExceptionCollector.runCollecting(action: ExceptionCollector.() -> Unit) {
+    try {
+        action()
+    } catch (e: Throwable) {
+        collect(e)
     }
 }

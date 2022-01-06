@@ -10,6 +10,14 @@
 package net.mamoe.mirai.event
 
 import kotlinx.coroutines.*
+import kotlinx.coroutines.channels.ClosedSendChannelException
+import kotlinx.coroutines.channels.SendChannel
+import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.channelFlow
+import net.mamoe.mirai.utils.*
+import kotlin.contracts.InvocationKind
+import kotlin.contracts.contract
 import kotlin.coroutines.resume
 import kotlin.reflect.KClass
 
@@ -28,6 +36,7 @@ public suspend inline fun <reified E : Event> EventChannel<*>.nextEvent(
     priority: EventPriority = EventPriority.NORMAL,
     noinline filter: suspend (E) -> Boolean = { true }
 ): E = coroutineScope { this@nextEvent.nextEventImpl(E::class, this@coroutineScope, priority, filter) }
+// useIncomingFlow(priority) { flow -> flow.filterIsInstance<E>().filter(filter).first() }
 
 /**
  * 挂起当前协程, 监听事件 [E], 并尝试从这个事件中**获取**一个值, 在超时时抛出 [TimeoutCancellationException]
@@ -48,6 +57,111 @@ public suspend inline fun <reified E : Event, R : Any> EventChannel<*>.syncFromE
     priority: EventPriority = EventPriority.NORMAL,
     noinline mapper: suspend (E) -> R?
 ): R = coroutineScope { this@syncFromEvent.syncFromEventImpl(E::class, this, priority, mapper) }
+// useIncomingFlow(priority) { flow -> flow.filterIsInstance<E>().mapNotNull(mapper).first() }
+
+/**
+ * 创建一个*冷*的 [Flow], 在使用该 [Flow] 时启动监听器监听事件, 将监听到的事件*发送*到该 [Flow].
+ *
+ * [block] 将会在创建监听器后立即调用, 其参数为上述 [Flow].
+ * 该 [Flow] 只可在 [block] 内部使用, 否则 [Flow.collect] 将会一直挂起. TODO
+ *
+ * ## [Flow] 的使用
+ *
+ * [Flow] 只可在 [block] 内部使用, 可以使用任意次. 当且仅当每次调用终止操作时创建一个监听器. 多次调用终止操作会创建多个事件监听器, 互相独立.
+ *
+ * 若 [block] 抛出异常, 所有本函数内创建的事件监听器都会被停止.
+ *
+ * ## 使用示例
+ *
+ * ### 挂起协程, 直到获取下一个类型为 `E` 的事件
+ * ```
+ * useIncomingFlow { flow -> flow.filterIsInstance<E>().first() }
+ * ```
+ *
+ * ### 挂起协程, 直到获取下一个满足条件的类型为 `E` 的事件
+ * ```
+ * useIncomingFlow { flow -> flow.filterIsInstance<E>().filter { it.someConditions() }.first() }
+ * ```
+ *
+ * ### 挂起协程, 直到获取下一个满足条件的类型为 `E` 的事件, 并[拦截][Event.intercept] 该事件
+ * ```
+ * useIncomingFlow { flow -> flow.filterIsInstance<E>().filter { it.someConditions() }.onEach { it.intercept() }.first() }
+ * ```
+ *
+ * ### 实现 [nextEvent]
+ *
+ * [nextEvent] 相当于特化的 [useIncomingFlow]. 作为示例, [nextEvent] 可以这样使用 [useIncomingFlow] 实现 (实际上它以另一种效率更高的方式实现):
+ * ```
+ * public suspend inline fun <reified E : Event> EventChannel<*>.nextEvent(
+ *     priority: EventPriority = EventPriority.NORMAL,
+ *     noinline filter: suspend (E) -> Boolean = { true }
+ * ): E = useIncomingFlow(priority = priority) { flow -> flow.filterIsInstance<E>().filter(filter).first() }
+ * ```
+ *
+ * ### 实现 [syncFromEvent]
+ *
+ * 作为示例, [syncFromEvent] 可以这样使用 [useIncomingFlow] 实现:
+ * ```
+ * public suspend inline fun <reified E : Event> EventChannel<*>.syncFromEvent(
+ *     priority: EventPriority = EventPriority.NORMAL,
+ *     noinline mapper: suspend (E) -> Boolean = { true }
+ * ): E = useIncomingFlow(priority = priority) { flow -> flow.filterIsInstance<E>().mapNotNull(mapper).first() }
+ * ```
+ *
+ * @since 2.10
+ */
+@MiraiExperimentalApi
+public inline fun <R, E : Event> EventChannel<E>.useIncomingFlow(
+    priority: EventPriority = EventPriority.NORMAL,
+    block: (Flow<E>) -> R
+): R {
+    contract { callsInPlace(block, InvocationKind.EXACTLY_ONCE) }
+    var channels: InlineList<SendChannel<E>> = InlineList()
+    var listeners: InlineList<Listener<E>> = InlineList()
+
+    return trySafely(
+        block = {
+            block(
+                channelFlow {
+                    channels += this.channel
+                    val listener = subscribeAlways(baseEventClass, priority = priority) {
+                        try {
+                            send(it)
+                        } catch (_: ClosedSendChannelException) {
+
+                        }
+                    }
+                    listeners += listener
+                    awaitClose { listener.complete() } // so this flow is endless until [block] completes.
+                }
+            )
+        },
+        finally = {
+            // TODO: 06/01/2022 do not use internal ExceptionCollector here
+            withExceptionCollector {
+                channels.forEachReversed { runCollecting { it.close() } }
+                listeners.forEachReversed { runCollecting { it.complete() } }
+            }
+        }
+    )
+//    val listener = subscribe(baseEventClass, priority = priority) {
+//        try {
+//            channel.send(it)
+//            ListeningStatus.LISTENING
+//        } catch (_: ClosedSendChannelException) {
+//            ListeningStatus.STOPPED
+//        }
+//    }
+//    return trySafely(
+//        block = {
+//            block(channel.receiveAsFlow())
+//        },
+//        finally = {
+//            listener.complete()
+//            channel.close()
+//        }
+//    )
+}
 
 
 /**
