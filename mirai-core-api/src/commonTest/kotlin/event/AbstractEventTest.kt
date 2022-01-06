@@ -9,10 +9,21 @@
 
 package net.mamoe.mirai.event
 
+import kotlinx.coroutines.asCoroutineDispatcher
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
+import org.junit.jupiter.api.TestInstance
+import java.util.concurrent.Executors
 
+@TestInstance(TestInstance.Lifecycle.PER_METHOD)
 internal abstract class AbstractEventTest {
+    protected open val dispatcher = Executors.newFixedThreadPool(1).asCoroutineDispatcher()
+
+    @AfterEach
+    protected open fun closeDispatcher() {
+        dispatcher.close()
+    }
+
     @BeforeEach
     fun loadEventBroadcast() {
         _EventBroadcast.implementation = object : _EventBroadcast() {

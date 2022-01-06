@@ -46,12 +46,7 @@ internal class EventLaunchUndispatchedTest : AbstractEventTest() {
         EVENT_LAUNCH_UNDISPATCHED = originalValue
     }
 
-    private val dispatcher = Executors.newFixedThreadPool(4).asCoroutineDispatcher()
-
-    @AfterEach
-    fun cleanup() {
-        dispatcher.close()
-    }
+    override val dispatcher = Executors.newFixedThreadPool(4).asCoroutineDispatcher()
 
     private suspend fun doTest() = coroutineScope {
         val invoked = ConcurrentLinkedQueue<Int>()

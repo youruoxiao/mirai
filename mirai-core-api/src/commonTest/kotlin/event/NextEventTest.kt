@@ -23,8 +23,6 @@ import kotlin.test.assertTrue
 
 @JvmBlockingBridge
 internal class NextEventTest : AbstractEventTest() {
-    private val dispatcher = Executors.newFixedThreadPool(1).asCoroutineDispatcher()
-
     @AfterEach
     fun stopDispatcher() {
         dispatcher.close()
