@@ -1,10 +1,10 @@
 /*
- * Copyright 2019-2021 Mamoe Technologies and contributors.
+ * Copyright 2019-2022 Mamoe Technologies and contributors.
  *
- *  此源代码的使用受 GNU AFFERO GENERAL PUBLIC LICENSE version 3 许可证的约束, 可以在以下链接找到该许可证.
- *  Use of this source code is governed by the GNU AGPLv3 license that can be found through the following link.
+ * 此源代码的使用受 GNU AFFERO GENERAL PUBLIC LICENSE version 3 许可证的约束, 可以在以下链接找到该许可证.
+ * Use of this source code is governed by the GNU AGPLv3 license that can be found through the following link.
  *
- *  https://github.com/mamoe/mirai/blob/master/LICENSE
+ * https://github.com/mamoe/mirai/blob/dev/LICENSE
  */
 
 @file:Suppress(
@@ -49,6 +49,7 @@ import org.jline.terminal.TerminalBuilder
 import org.jline.terminal.impl.AbstractWindowsTerminal
 import java.nio.file.Path
 import java.nio.file.Paths
+import kotlin.reflect.KClass
 
 /**
  * mirai-console-terminal 后端实现
@@ -86,6 +87,7 @@ open class MiraiConsoleImplementationTerminal
             configStorageForBuiltIns
         )
     }
+
     // used in test
     internal val logService: LoggingService
 
@@ -94,12 +96,41 @@ open class MiraiConsoleImplementationTerminal
         return StandardCharImageLoginSolver(input = { requestInput("LOGIN> ") })
     }
 
+    @Suppress("DeprecatedCallableAddReplaceWith")
+    @Deprecated(
+        "Deprecated for removal. Implement the other overload, or use MiraiConsole.createLogger instead.",
+        level = DeprecationLevel.ERROR
+    )
     override fun createLogger(identity: String?): MiraiLogger {
-        return PlatformLogger(identity = identity, output = { line ->
-            val text = line + ANSI_RESET
-            lineReader.printAbove(text)
-            logService.pushLine(text)
-        })
+        return MiraiLogger.Factory.create(MiraiConsoleImplementationTerminal::class, identity)
+//        return PlatformLogger(identity = identity, output = { line ->
+//            val text = line + ANSI_RESET
+//            lineReader.printAbove(text)
+//            logService.pushLine(text)
+//        })
+    }
+
+    override fun createLoggerFactory(platformImplementation: MiraiLogger.Factory): MiraiLogger.Factory {
+        // platformImplementation is not used by Terminal
+
+        return object : MiraiLogger.Factory {
+            override fun create(requester: Class<*>, identity: String?): MiraiLogger {
+                return PlatformLogger(identity = identity ?: requester.simpleName, output = { line ->
+                    val text = line + ANSI_RESET
+                    lineReader.printAbove(text)
+                    logService.pushLine(text)
+                })
+            }
+
+            override fun create(requester: KClass<*>, identity: String?): MiraiLogger {
+                return PlatformLogger(identity = identity ?: requester.simpleName, output = { line ->
+                    val text = line + ANSI_RESET
+                    lineReader.printAbove(text)
+                    logService.pushLine(text)
+                })
+            }
+
+        }
     }
 
     init {
